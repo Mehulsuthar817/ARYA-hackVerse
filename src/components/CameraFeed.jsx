@@ -3,11 +3,15 @@ import { Camera, ScanFace } from 'lucide-react'
 function CameraFeed({ camera }) {
   return (
     <article className="relative overflow-hidden rounded-2xl border border-steel-300 bg-navy-900 shadow-card">
-      <img
-        src="https://images.unsplash.com/photo-1470231009838-03c9f45f5f85?auto=format&fit=crop&w=1000&q=80"
-        alt={camera.location}
-        className="h-44 w-full object-cover opacity-80"
-      />
+      {camera.feedUrl ? (
+        <img
+          src={camera.feedUrl}
+          alt={camera.location}
+          className="h-44 w-full object-cover opacity-80"
+        />
+      ) : (
+        <div className="flex h-44 items-center justify-center bg-navy-800 text-sm text-steel-100">Feed unavailable</div>
+      )}
 
       <div className="absolute left-3 top-3 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-semibold text-white">
         LIVE

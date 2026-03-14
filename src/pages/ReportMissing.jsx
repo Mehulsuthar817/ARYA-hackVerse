@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 const initialForm = {
   name: '',
@@ -9,28 +9,38 @@ const initialForm = {
   lastSeenLocation: '',
   lastSeenDate: '',
   description: '',
-  photos: '',
-  contactPhoneNumber: '',
+  photo: null,
 }
 
 function ReportMissing() {
   const [formData, setFormData] = useState(initialForm)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
+  const [error, setError] = useState('')
 
   const onChange = (event) => {
-    setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }))
+    const { name, value, files, type } = event.target
+    setFormData((prev) => ({ ...prev, [name]: type === 'file' ? files?.[0] || null : value }))
   }
 
   const onSubmit = async (event) => {
     event.preventDefault()
     setLoading(true)
     setSuccess('')
+    setError('')
+
+    if (!formData.photo) {
+      setError('Please upload a clear face photo.')
+      setLoading(false)
+      return
+    }
 
     try {
       await reportApi.submitMissing(formData)
       setSuccess('Report submitted successfully.')
       setFormData(initialForm)
+    } catch (submissionError) {
+      setError(getErrorMessage(submissionError, 'Unable to submit the report.'))
     } finally {
       setLoading(false)
     }
@@ -108,34 +118,23 @@ function ReportMissing() {
             value={formData.description}
             onChange={onChange}
             rows={3}
+            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+          />
+        </label>
+
+        <label className="text-sm font-medium text-steel-700 sm:col-span-2">
+          Upload Photo
+          <input
+            type="file"
+            name="photo"
+            onChange={onChange}
+            accept="image/*"
             required
             className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
-          Upload Photos
-          <input
-            type="text"
-            name="photos"
-            value={formData.photos}
-            onChange={onChange}
-            placeholder="Photo URL or filename"
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
-          />
-        </label>
-
-        <label className="text-sm font-medium text-steel-700">
-          Contact Phone Number
-          <input
-            type="tel"
-            name="contactPhoneNumber"
-            value={formData.contactPhoneNumber}
-            onChange={onChange}
-            required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
-          />
-        </label>
+        {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 sm:col-span-2">{error}</p> : null}
 
         {success ? (
           <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">

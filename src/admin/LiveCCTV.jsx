@@ -1,17 +1,23 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import CameraFeed from '../components/CameraFeed'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 function LiveCCTV() {
   const [loading, setLoading] = useState(true)
   const [cameras, setCameras] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchCameras = async () => {
-      const response = await reportApi.getCameras()
-      setCameras(response.data)
-      setLoading(false)
+      try {
+        const response = await reportApi.getCameras()
+        setCameras(response.data)
+      } catch (fetchError) {
+        setError(getErrorMessage(fetchError, 'Unable to load CCTV feeds.'))
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchCameras()
@@ -28,6 +34,8 @@ function LiveCCTV() {
         <div className="flex items-center gap-2 text-steel-600">
           <Loader2 className="animate-spin" size={18} /> Loading camera feeds...
         </div>
+      ) : error ? (
+        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {cameras.map((camera) => (

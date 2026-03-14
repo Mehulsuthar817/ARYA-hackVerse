@@ -9,7 +9,7 @@ from typing import Optional
 from bson import ObjectId
 
 from app.services.face_service import compare_faces
-from app.config import FACE_DISTANCE_THRESHOLD
+from app.config import FACE_DISTANCE_THRESHOLD, to_public_upload_path
 
 
 async def find_matches(
@@ -38,6 +38,7 @@ async def find_matches(
                     "person_id": str(person["_id"]),
                     "name": person.get("name", "Unknown"),
                     "photo_path": person.get("photo_path", ""),
+                    "photo_url": to_public_upload_path(person.get("photo_path", "")),
                     "confidence": round(confidence, 4),
                 }
             )

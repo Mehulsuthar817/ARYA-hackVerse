@@ -13,17 +13,9 @@ import ReportMissing from './pages/ReportMissing'
 import ReportSighting from './pages/ReportSighting'
 import Signup from './pages/Signup'
 import UserDashboard from './pages/UserDashboard'
+import { getStoredUser } from './services/api'
 
-const getAuthUser = () => {
-  const rawUser = localStorage.getItem('mpis_user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
-}
+const getAuthUser = () => getStoredUser()
 
 function ProtectedRoute({ children, role }) {
   const user = getAuthUser()
@@ -58,7 +50,7 @@ function App() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute role="citizen">
+          <ProtectedRoute role="user">
             <AppLayout>
               <UserDashboard />
             </AppLayout>
@@ -68,7 +60,7 @@ function App() {
       <Route
         path="/report-missing"
         element={
-          <ProtectedRoute role="citizen">
+          <ProtectedRoute role="user">
             <AppLayout>
               <ReportMissing />
             </AppLayout>
@@ -78,7 +70,7 @@ function App() {
       <Route
         path="/report-sighting"
         element={
-          <ProtectedRoute role="citizen">
+          <ProtectedRoute role="user">
             <AppLayout>
               <ReportSighting />
             </AppLayout>
@@ -88,7 +80,7 @@ function App() {
       <Route
         path="/my-reports"
         element={
-          <ProtectedRoute role="citizen">
+          <ProtectedRoute role="user">
             <AppLayout>
               <MyReports />
             </AppLayout>
@@ -98,7 +90,7 @@ function App() {
       <Route
         path="/my-sightings"
         element={
-          <ProtectedRoute role="citizen">
+          <ProtectedRoute role="user">
             <AppLayout>
               <MySightings />
             </AppLayout>

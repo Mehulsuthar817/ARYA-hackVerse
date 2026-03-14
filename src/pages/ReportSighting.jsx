@@ -1,11 +1,10 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 const initialData = {
-  photo: '',
+  photo: null,
   location: '',
-  dateTime: '',
   description: '',
 }
 
@@ -13,20 +12,31 @@ function ReportSighting() {
   const [formData, setFormData] = useState(initialData)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
 
   const onChange = (event) => {
-    setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }))
+    const { name, value, files, type } = event.target
+    setFormData((prev) => ({ ...prev, [name]: type === 'file' ? files?.[0] || null : value }))
   }
 
   const onSubmit = async (event) => {
     event.preventDefault()
     setLoading(true)
     setResult(null)
+    setError('')
+
+    if (!formData.photo) {
+      setError('Please upload a sighting photo.')
+      setLoading(false)
+      return
+    }
 
     try {
       const response = await reportApi.submitSighting(formData)
       setResult(response.data)
       setFormData(initialData)
+    } catch (submissionError) {
+      setError(getErrorMessage(submissionError, 'Unable to process the sighting.'))
     } finally {
       setLoading(false)
     }
@@ -40,40 +50,25 @@ function ReportSighting() {
         <label className="text-sm font-medium text-steel-700">
           Upload Photo
           <input
-            type="text"
+            type="file"
             name="photo"
-            value={formData.photo}
             onChange={onChange}
-            placeholder="Photo URL or filename"
+            accept="image/*"
             required
             className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
           />
         </label>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-steel-700">
-            Location
-            <input
-              name="location"
-              value={formData.location}
-              onChange={onChange}
-              required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
-            />
-          </label>
-
-          <label className="text-sm font-medium text-steel-700">
-            Date / Time
-            <input
-              type="datetime-local"
-              name="dateTime"
-              value={formData.dateTime}
-              onChange={onChange}
-              required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
-            />
-          </label>
-        </div>
+        <label className="text-sm font-medium text-steel-700">
+          Location
+          <input
+            name="location"
+            value={formData.location}
+            onChange={onChange}
+            required
+            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+          />
+        </label>
 
         <label className="text-sm font-medium text-steel-700">
           Description
@@ -82,10 +77,11 @@ function ReportSighting() {
             value={formData.description}
             onChange={onChange}
             rows={3}
-            required
             className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
           />
         </label>
+
+        {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p> : null}
 
         <button
           type="submit"
@@ -106,6 +102,9 @@ function ReportSighting() {
           <h2 className="font-display text-lg font-semibold text-emerald-800">AI Result</h2>
           <p className="mt-1 text-sm text-emerald-700">{result.aiResult}</p>
           <p className="text-sm text-emerald-700">Confidence Score: {result.confidence}%</p>
+          {result.topMatches?.length ? (
+            <p className="mt-2 text-sm text-emerald-700">Top match: {result.topMatches[0].name}</p>
+          ) : null}
         </article>
       ) : null}
     </section>

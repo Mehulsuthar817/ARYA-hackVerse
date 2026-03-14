@@ -1,19 +1,25 @@
 import { Loader2, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import PersonCard from '../components/PersonCard'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 function MissingPersons() {
   const [loading, setLoading] = useState(true)
   const [persons, setPersons] = useState([])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchPersons = async () => {
-      const response = await reportApi.getMissingPersons()
-      setPersons(response.data)
-      setLoading(false)
+      try {
+        const response = await reportApi.getMissingPersons({ status: 'all' })
+        setPersons(response.data)
+      } catch (fetchError) {
+        setError(getErrorMessage(fetchError, 'Unable to load missing persons.'))
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchPersons()
@@ -55,9 +61,8 @@ function MissingPersons() {
           className="w-full rounded-xl border border-steel-300 px-3 py-2"
         >
           <option>All</option>
-          <option>Pending</option>
-          <option>Verified</option>
-          <option>Person Found</option>
+          <option value="missing">Missing</option>
+          <option value="found">Person Found</option>
         </select>
       </div>
 
@@ -65,6 +70,8 @@ function MissingPersons() {
         <div className="flex items-center gap-2 text-steel-600">
           <Loader2 className="animate-spin" size={18} /> Loading missing persons...
         </div>
+      ) : error ? (
+        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       ) : filteredPersons.length === 0 ? (
         <p className="rounded-xl bg-steel-100 p-4 text-sm text-steel-700">No matching records found.</p>
       ) : (

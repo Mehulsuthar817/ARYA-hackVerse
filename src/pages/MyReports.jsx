@@ -1,30 +1,31 @@
-import { Loader2, Trash2, View } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 const statusStyles = {
-  Pending: 'bg-amber-100 text-amber-700',
-  Verified: 'bg-blue-100 text-blue-700',
+  Missing: 'bg-amber-100 text-amber-700',
   'Person Found': 'bg-emerald-100 text-emerald-700',
 }
 
 function MyReports() {
   const [loading, setLoading] = useState(true)
   const [reports, setReports] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchReports = async () => {
-      const response = await reportApi.getMyReports()
-      setReports(response.data)
-      setLoading(false)
+      try {
+        const response = await reportApi.getMyReports()
+        setReports(response.data)
+      } catch (fetchError) {
+        setError(getErrorMessage(fetchError, 'Unable to load your reports.'))
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchReports()
   }, [])
-
-  const deleteReport = (reportId) => {
-    setReports((prev) => prev.filter((report) => report.id !== reportId))
-  }
 
   return (
     <section className="rounded-2xl border border-steel-200 bg-white p-5 shadow-card sm:p-6">
@@ -34,6 +35,8 @@ function MyReports() {
         <div className="mt-6 flex items-center gap-2 text-steel-600">
           <Loader2 className="animate-spin" size={18} /> Loading reports...
         </div>
+      ) : error ? (
+        <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       ) : reports.length === 0 ? (
         <p className="mt-6 rounded-xl bg-steel-100 p-4 text-sm text-steel-700">
           No reports submitted yet.
@@ -46,7 +49,7 @@ function MyReports() {
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Report Date</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">Photo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-steel-200 bg-white">
@@ -56,23 +59,19 @@ function MyReports() {
                   <td className="px-4 py-3">{report.reportDate}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[report.status] || 'bg-steel-100 text-steel-700'}`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[report.statusLabel] || 'bg-steel-100 text-steel-700'}`}
                     >
-                      {report.status}
+                      {report.statusLabel}
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button className="inline-flex items-center gap-1 rounded-lg bg-steel-100 px-2 py-1 text-steel-700 hover:bg-steel-200">
-                        <View size={14} /> View
-                      </button>
-                      <button
-                        onClick={() => deleteReport(report.id)}
-                        className="inline-flex items-center gap-1 rounded-lg bg-red-100 px-2 py-1 text-red-700 hover:bg-red-200"
-                      >
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
+                    {report.photo ? (
+                      <a href={report.photo} target="_blank" rel="noreferrer" className="text-navy-700 hover:text-navy-900">
+                        View Photo
+                      </a>
+                    ) : (
+                      <span className="text-steel-500">Unavailable</span>
+                    )}
                   </td>
                 </tr>
               ))}

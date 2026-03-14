@@ -1,7 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authApi } from '../services/api'
+import { authApi, getErrorMessage } from '../services/api'
 
 function Signup() {
   const navigate = useNavigate()
@@ -9,6 +9,7 @@ function Signup() {
     fullName: '',
     email: '',
     phoneNumber: '',
+    role: 'user',
     password: '',
     confirmPassword: '',
   })
@@ -26,18 +27,55 @@ function Signup() {
     setSuccess('')
     setError('')
 
+    const normalizedFullName = formData.fullName.trim()
+    const normalizedEmail = formData.email.trim()
+    const normalizedPhoneNumber = formData.phoneNumber.trim()
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match.')
       setLoading(false)
       return
     }
 
+    if (!normalizedFullName) {
+      setError('Full name is required.')
+      setLoading(false)
+      return
+    }
+
+    if (!normalizedEmail) {
+      setError('Email is required.')
+      setLoading(false)
+      return
+    }
+
+    if (!normalizedPhoneNumber) {
+      setError('Phone number is required.')
+      setLoading(false)
+      return
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      setLoading(false)
+      return
+    }
+
     try {
-      await authApi.signup(formData)
-      setSuccess('Account created successfully. Redirecting to login...')
+      await authApi.signup({
+        ...formData,
+        fullName: normalizedFullName,
+        email: normalizedEmail,
+        phoneNumber: normalizedPhoneNumber,
+      })
+      setSuccess(
+        formData.role === 'admin'
+          ? 'Admin account created successfully. Redirecting to login...'
+          : 'Account created successfully. Redirecting to login...',
+      )
       setTimeout(() => navigate('/login'), 1000)
-    } catch {
-      setError('Unable to create account. Please try again later.')
+    } catch (error) {
+      setError(getErrorMessage(error, 'Unable to create account. Please try again later.'))
     } finally {
       setLoading(false)
     }
@@ -85,6 +123,19 @@ function Signup() {
             />
           </label>
 
+          <label className="block text-sm font-medium text-steel-700 sm:col-span-2">
+            Register As
+            <select
+              name="role"
+              value={formData.role}
+              onChange={onChange}
+              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+            >
+              <option value="user">Citizen User</option>
+              <option value="admin">Police / Admin</option>
+            </select>
+          </label>
+
           <label className="block text-sm font-medium text-steel-700">
             Password
             <input
@@ -93,6 +144,7 @@ function Signup() {
               value={formData.password}
               onChange={onChange}
               required
+              minLength={8}
               className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
@@ -105,6 +157,7 @@ function Signup() {
               value={formData.confirmPassword}
               onChange={onChange}
               required
+              minLength={8}
               className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>

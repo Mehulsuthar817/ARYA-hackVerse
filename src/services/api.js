@@ -1,171 +1,341 @@
 import axios from 'axios'
 
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 5000,
-})
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+const BACKEND_BASE_URL = API_BASE_URL.endsWith('/api') ? API_BASE_URL.slice(0, -4) : API_BASE_URL
 
-export const endpoints = {
-  login: '/api/login',
-  signup: '/api/signup',
-  reportMissing: '/api/report-missing',
-  reportSighting: '/api/report-sighting',
-  missingPersons: '/api/missing-persons',
-  matches: '/api/matches',
+export const storageKeys = {
+  token: 'mpis_token',
+  user: 'mpis_user',
 }
 
-const wait = (ms = 700) => new Promise((resolve) => setTimeout(resolve, ms))
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+})
 
-const mockMissingPersons = [
-  {
-    id: 'MP-1001',
-    name: 'Rahul Nair',
-    age: 17,
-    gender: 'Male',
-    lastSeenLocation: 'Railway Station, Central City',
-    lastSeenDate: '2026-03-09',
-    description: 'Wearing a navy hoodie and blue jeans.',
-    photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
-    status: 'Pending',
-    reportDate: '2026-03-10',
-  },
-  {
-    id: 'MP-1002',
-    name: 'Anita Das',
-    age: 24,
-    gender: 'Female',
-    lastSeenLocation: 'City Bus Depot, East Zone',
-    lastSeenDate: '2026-03-06',
-    description: 'Carrying a black backpack and silver watch.',
-    photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80',
-    status: 'Verified',
-    reportDate: '2026-03-07',
-  },
-  {
-    id: 'MP-1003',
-    name: 'Farhan Iqbal',
-    age: 31,
-    gender: 'Male',
-    lastSeenLocation: 'Old Market Road',
-    lastSeenDate: '2026-03-02',
-    description: 'Last seen near a red hatchback.',
-    photo: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&w=600&q=80',
-    status: 'Person Found',
-    reportDate: '2026-03-03',
-  },
-]
+export const normalizeRole = (role) => (role === 'citizen' ? 'user' : role)
 
-const mockSightings = [
-  {
-    id: 'SG-2001',
-    location: 'Metro Exit Gate 2',
-    dateTime: '2026-03-11T14:20',
-    description: 'Person appeared confused and was pacing.',
-    aiResult: 'Possible match with Rahul Nair',
-    confidence: 88,
-  },
-]
+export const getStoredUser = () => {
+  const rawUser = localStorage.getItem(storageKeys.user)
+  if (!rawUser) {
+    return null
+  }
 
-const mockMatches = [
-  {
-    id: 'MT-3001',
-    personName: 'Rahul Nair',
-    confidence: 88,
-    location: 'Metro Exit Gate 2',
-    time: '2026-03-11 14:20',
-    missingPhoto: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80',
-    cctvPhoto: 'https://images.unsplash.com/photo-1488161628813-04466f872be2?auto=format&fit=crop&w=600&q=80',
-    status: 'Pending',
-  },
-  {
-    id: 'MT-3002',
-    personName: 'Anita Das',
-    confidence: 79,
-    location: 'Sector 5 Junction',
-    time: '2026-03-10 21:05',
-    missingPhoto: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80',
-    cctvPhoto: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80',
-    status: 'Pending',
-  },
-]
+  try {
+    const user = JSON.parse(rawUser)
+    return user ? { ...user, role: normalizeRole(user.role) } : null
+  } catch {
+    return null
+  }
+}
 
-const mockCameras = [
-  { id: 'CAM-01', location: 'Central Plaza', detected: true, confidence: 91 },
-  { id: 'CAM-02', location: 'North Flyover', detected: false, confidence: 0 },
-  { id: 'CAM-03', location: 'Bus Terminal', detected: true, confidence: 77 },
-  { id: 'CAM-04', location: 'Hospital Road', detected: false, confidence: 0 },
-  { id: 'CAM-05', location: 'Old Market', detected: true, confidence: 85 },
-  { id: 'CAM-06', location: 'Airport Gate', detected: false, confidence: 0 },
-]
+export const clearAuthSession = () => {
+  localStorage.removeItem(storageKeys.token)
+  localStorage.removeItem(storageKeys.user)
+}
+
+export const setAuthSession = ({ accessToken, user }) => {
+  if (accessToken) {
+    localStorage.setItem(storageKeys.token, accessToken)
+  }
+
+  if (user) {
+    localStorage.setItem(
+      storageKeys.user,
+      JSON.stringify({ ...user, role: normalizeRole(user.role) }),
+    )
+  }
+}
+
+const getStoredToken = () => localStorage.getItem(storageKeys.token)
+
+const toBackendUrl = (path) => {
+  if (!path) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(path)) {
+    return path
+  }
+
+  if (!BACKEND_BASE_URL) {
+    return path
+  }
+
+  return `${BACKEND_BASE_URL}${path}`
+}
+
+export const resolveMediaUrl = (path) => {
+  if (!path) {
+    return ''
+  }
+
+  const normalized = String(path).replace(/\\/g, '/')
+  const uploadsIndex = normalized.toLowerCase().lastIndexOf('/uploads/')
+
+  if (uploadsIndex >= 0) {
+    return toBackendUrl(normalized.slice(uploadsIndex))
+  }
+
+  if (normalized.toLowerCase().startsWith('uploads/')) {
+    return toBackendUrl(`/${normalized}`)
+  }
+
+  if (normalized.startsWith('/')) {
+    return toBackendUrl(normalized)
+  }
+
+  return normalized
+}
+
+export const getErrorMessage = (error, fallbackMessage = 'Request failed.') => {
+  const detail = error?.response?.data?.detail
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item
+        }
+
+        if (!item || typeof item !== 'object') {
+          return ''
+        }
+
+        const location = Array.isArray(item.loc)
+          ? item.loc.filter((part) => part !== 'body').join(' ')
+          : ''
+
+        return location ? `${location}: ${item.msg}` : item.msg
+      })
+      .filter(Boolean)
+
+    if (messages.length > 0) {
+      return messages.join('. ')
+    }
+  }
+
+  const message = error?.response?.data?.message || error?.message
+  return typeof message === 'string' && message.trim() ? message : fallbackMessage
+}
+
+const formatDate = (value, withTime = false) => {
+  if (!value) {
+    return 'N/A'
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return withTime
+    ? parsed.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    : parsed.toLocaleDateString([], { dateStyle: 'medium' })
+}
+
+const formatConfidence = (value) => {
+  const confidence = Number(value)
+  if (Number.isNaN(confidence)) {
+    return 0
+  }
+
+  return confidence <= 1 ? Math.round(confidence * 100) : Math.round(confidence)
+}
+
+const normalizeMissingPerson = (record) => ({
+  ...record,
+  id: record.id,
+  name: record.name,
+  age: record.age,
+  gender: record.gender,
+  description: record.description || 'No description provided.',
+  lastSeenLocation: record.last_seen_location || record.lastSeenLocation || 'Unknown',
+  lastSeenDate: record.last_seen_date || record.lastSeenDate || 'Unknown',
+  photo: resolveMediaUrl(record.photo_url || record.photo_path || record.photo),
+  status: record.status === 'found' ? 'found' : 'missing',
+  statusLabel: record.status === 'found' ? 'Person Found' : 'Missing',
+  reportDate: formatDate(record.created_at || record.reportDate),
+})
+
+const normalizeSighting = (record) => ({
+  ...record,
+  id: record.id,
+  location: record.location || 'Unknown',
+  description: record.description || 'No description provided.',
+  dateTime: formatDate(record.timestamp || record.dateTime, true),
+  photo: resolveMediaUrl(record.image_url || record.image_path || record.photo),
+  confidence: formatConfidence(record.confidence_score || record.confidence),
+  aiResult: record.match_person_id
+    ? 'Possible match detected.'
+    : 'No confirmed match recorded yet.',
+})
+
+const normalizeMatch = (record) => ({
+  ...record,
+  id: record.id,
+  personName: record.person_name || record.name || 'Unknown',
+  confidence: formatConfidence(record.confidence),
+  location: record.sighting_location || record.location || 'Unknown',
+  time: formatDate(record.timestamp || record.time, true),
+  missingPhoto: resolveMediaUrl(record.person_photo_url || record.photo_url || record.person_photo || record.photo_path),
+  cctvPhoto: resolveMediaUrl(record.sighting_image_url || record.sighting_image || record.image_url || record.image_path),
+  status: record.verified ? 'Approved' : record.verified_at ? 'Rejected' : 'Pending',
+})
+
+const normalizeDashboard = (record) => ({
+  totalMissing: record.total_missing ?? 0,
+  totalFound: record.total_found ?? 0,
+  totalSightings: record.total_sightings ?? 0,
+  totalMatches: record.total_matches ?? 0,
+  pendingVerification: record.pending_verification ?? 0,
+  totalUsers: record.total_users ?? 0,
+})
+
+api.interceptors.request.use((config) => {
+  const token = getStoredToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const url = error?.config?.url || ''
+    if (error?.response?.status === 401 && !url.includes('/login') && !url.includes('/signup')) {
+      clearAuthSession()
+    }
+    return Promise.reject(error)
+  },
+)
 
 export const authApi = {
-  login: async (payload) => {
-    await wait(800)
-    return {
-      data: {
-        endpoint: endpoints.login,
-        user: {
-          name: payload.role === 'admin' ? 'Inspector Mehra' : 'Citizen User',
-          email: payload.email,
-          role: payload.role,
-        },
-      },
+  login: async ({ email, password, role }) => {
+    const response = await api.post('/login', { email, password })
+    const user = { ...response.data.user, role: normalizeRole(response.data.user?.role) }
+    const expectedRole = normalizeRole(role)
+
+    if (expectedRole && user.role !== expectedRole) {
+      clearAuthSession()
+      throw new Error(`This account does not have ${role === 'admin' ? 'admin' : 'citizen'} access.`)
     }
+
+    setAuthSession({ accessToken: response.data.access_token, user })
+    return { ...response, data: { ...response.data, user } }
   },
-  signup: async (payload) => {
-    await wait(900)
-    return {
-      data: {
-        endpoint: endpoints.signup,
-        message: 'Account created successfully.',
-      },
-    }
+  signup: async ({ fullName, email, phoneNumber, password, role = 'user' }) => {
+    return api.post('/signup', {
+      name: fullName.trim(),
+      email: email.trim(),
+      phone: phoneNumber.trim(),
+      password,
+      role: normalizeRole(role),
+    })
   },
 }
 
 export const reportApi = {
-  submitMissing: async (payload) => {
-    await wait(1100)
-    const report = {
-      id: `MP-${1000 + mockMissingPersons.length + 1}`,
-      reportDate: new Date().toISOString().slice(0, 10),
-      status: 'Pending',
-      ...payload,
-    }
-    mockMissingPersons.unshift(report)
-    return { data: { report, endpoint: endpoints.reportMissing, message: 'Report submitted successfully.' } }
+  submitMissing: async ({ name, age, gender, lastSeenLocation, lastSeenDate, description, photo }) => {
+    const formData = new FormData()
+    formData.append('name', name)
+    formData.append('age', age)
+    formData.append('gender', gender)
+    formData.append('last_seen_location', lastSeenLocation)
+    formData.append('last_seen_date', lastSeenDate)
+    formData.append('description', description || '')
+    formData.append('photo', photo)
+
+    return api.post('/report-missing', formData)
   },
-  submitSighting: async (payload) => {
-    await wait(1800)
-    const confidence = Math.floor(Math.random() * (95 - 72 + 1) + 72)
-    const sighting = {
-      id: `SG-${2000 + mockSightings.length + 1}`,
-      ...payload,
-      aiResult: confidence > 80 ? 'Possible match detected' : 'No strong match found',
-      confidence,
+  submitSighting: async ({ location, description, photo }) => {
+    const formData = new FormData()
+    formData.append('location', location)
+    formData.append('description', description || '')
+    formData.append('photo', photo)
+
+    const response = await api.post('/report-sighting', formData)
+    const topMatch = response.data.top_matches?.[0]
+
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        aiResult: response.data.face_detected
+          ? response.data.matches_found > 0
+            ? 'Possible match detected.'
+            : 'Face detected but no strong match found.'
+          : 'No face detected in the uploaded image.',
+        confidence: formatConfidence(topMatch?.confidence),
+        topMatches: (response.data.top_matches || []).map((match) => ({
+          ...match,
+          confidence: formatConfidence(match.confidence),
+          photo: resolveMediaUrl(match.photo_url || match.photo_path),
+        })),
+      },
     }
-    mockSightings.unshift(sighting)
-    return { data: { ...sighting, endpoint: endpoints.reportSighting } }
   },
   getMyReports: async () => {
-    await wait(650)
-    return { data: mockMissingPersons }
+    const response = await api.get('/my-reports')
+    return { ...response, data: response.data.map(normalizeMissingPerson) }
   },
   getMySightings: async () => {
-    await wait(650)
-    return { data: mockSightings }
+    const response = await api.get('/my-sightings')
+    return { ...response, data: response.data.map(normalizeSighting) }
   },
-  getMissingPersons: async () => {
-    await wait(650)
-    return { data: mockMissingPersons, endpoint: endpoints.missingPersons }
+  getMissingPersons: async ({ status = 'missing', limit = 50 } = {}) => {
+    const response = await api.get('/missing-persons', {
+      params: { limit, status_filter: status },
+    })
+    return {
+      ...response,
+      data: response.data.results.map(normalizeMissingPerson),
+      total: response.data.total,
+    }
+  },
+  getDashboard: async () => {
+    const response = await api.get('/admin/dashboard')
+    return { ...response, data: normalizeDashboard(response.data) }
   },
   getMatches: async () => {
-    await wait(600)
-    return { data: mockMatches, endpoint: endpoints.matches }
+    const response = await api.get('/admin/matches')
+    return { ...response, data: response.data.results.map(normalizeMatch), total: response.data.total }
+  },
+  verifyMatch: async (matchId, verified) => {
+    return api.put(`/admin/verify-match/${matchId}`, { verified })
+  },
+  getUsers: async () => {
+    const response = await api.get('/admin/users')
+    return { ...response, data: response.data.results }
   },
   getCameras: async () => {
-    await wait(600)
-    return { data: mockCameras }
+    const response = await api.get('/cctv/active-streams')
+    const activeCameras = response.data.active_cameras || []
+
+    return {
+      ...response,
+      data: [
+        {
+          id: 'CAM-LOCAL',
+          location: 'Local Webcam Feed',
+          detected: false,
+          confidence: 0,
+          feedUrl: toBackendUrl('/api/cctv/webcam-feed'),
+        },
+        ...activeCameras.map((cameraId) => ({
+          id: cameraId,
+          location: `Active Stream ${cameraId}`,
+          detected: false,
+          confidence: 0,
+          feedUrl: toBackendUrl('/api/cctv/webcam-feed'),
+        })),
+      ],
+    }
   },
 }
 

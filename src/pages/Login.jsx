@@ -1,14 +1,14 @@
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authApi } from '../services/api'
+import { authApi, getErrorMessage } from '../services/api'
 
 function Login() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    role: 'citizen',
+    role: 'user',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,10 +24,9 @@ function Login() {
 
     try {
       const response = await authApi.login(formData)
-      localStorage.setItem('mpis_user', JSON.stringify(response.data.user))
-      navigate(formData.role === 'admin' ? '/admin/dashboard' : '/dashboard')
-    } catch {
-      setError('Invalid credentials. Please try again.')
+      navigate(response.data.user.role === 'admin' ? '/admin/dashboard' : '/dashboard')
+    } catch (error) {
+      setError(getErrorMessage(error, 'Invalid credentials. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -74,7 +73,7 @@ function Login() {
               onChange={onChange}
               className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
             >
-              <option value="citizen">Citizen User</option>
+                <option value="user">Citizen User</option>
               <option value="admin">Police / Admin</option>
             </select>
           </label>

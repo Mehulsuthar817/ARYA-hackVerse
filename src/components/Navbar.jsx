@@ -6,8 +6,9 @@ import {
   UserRoundSearch,
 } from 'lucide-react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { clearAuthSession, getStoredUser } from '../services/api'
 
-const citizenLinks = [
+const userLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/report-missing', label: 'Report Missing Person' },
   { to: '/report-sighting', label: 'Report Sighting' },
@@ -25,11 +26,11 @@ const adminLinks = [
 
 function Navbar() {
   const navigate = useNavigate()
-  const user = JSON.parse(localStorage.getItem('mpis_user') || 'null')
-  const links = user?.role === 'admin' ? adminLinks : citizenLinks
+  const user = getStoredUser()
+  const links = user?.role === 'admin' ? adminLinks : userLinks
 
   const logout = () => {
-    localStorage.removeItem('mpis_user')
+    clearAuthSession()
     navigate('/login')
   }
 

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.utils.security import get_current_admin
 from app.utils.image_upload import save_upload
-from app.services.face_service import generate_encoding, load_image_from_bytes, detect_face
+from app.services.face_service import generate_encoding, load_image_from_bytes, detect_face, FACE_RECOGNITION_AVAILABLE
 from app.services.match_service import find_matches, store_match
 from app.config import CCTV_FRAMES_DIR
 

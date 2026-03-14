@@ -13,7 +13,7 @@ from app.utils.security import get_current_user
 from app.utils.image_upload import save_upload
 from app.services.encoding_service import process_image_file
 from app.services.match_service import find_matches, store_match
-from app.config import SIGHTINGS_DIR
+from app.config import SIGHTINGS_DIR, to_public_upload_path
 
 router = APIRouter(prefix="/api", tags=["sightings"])
 
@@ -23,6 +23,7 @@ def _serialize(doc: dict) -> dict:
     for field in ("uploaded_by", "match_person_id"):
         if field in doc and isinstance(doc[field], ObjectId):
             doc[field] = str(doc[field])
+    doc["image_url"] = to_public_upload_path(doc.get("image_path"))
     return doc
 
 

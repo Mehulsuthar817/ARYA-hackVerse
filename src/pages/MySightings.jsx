@@ -1,16 +1,22 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { reportApi } from '../services/api'
+import { getErrorMessage, reportApi } from '../services/api'
 
 function MySightings() {
   const [loading, setLoading] = useState(true)
   const [sightings, setSightings] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const fetchSightings = async () => {
-      const response = await reportApi.getMySightings()
-      setSightings(response.data)
-      setLoading(false)
+      try {
+        const response = await reportApi.getMySightings()
+        setSightings(response.data)
+      } catch (fetchError) {
+        setError(getErrorMessage(fetchError, 'Unable to load your sightings.'))
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchSightings()
@@ -24,12 +30,17 @@ function MySightings() {
         <div className="mt-6 flex items-center gap-2 text-steel-600">
           <Loader2 className="animate-spin" size={18} /> Loading sightings...
         </div>
+      ) : error ? (
+        <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
       ) : sightings.length === 0 ? (
         <p className="mt-6 rounded-xl bg-steel-100 p-4 text-sm text-steel-700">No sightings uploaded yet.</p>
       ) : (
         <div className="mt-6 space-y-3">
           {sightings.map((sighting) => (
             <article key={sighting.id} className="rounded-xl border border-steel-200 bg-steel-50 p-4">
+              {sighting.photo ? (
+                <img src={sighting.photo} alt={sighting.location} className="mb-3 h-48 w-full rounded-xl object-cover" />
+              ) : null}
               <p className="font-medium text-steel-800">{sighting.location}</p>
               <p className="text-sm text-steel-600">{sighting.dateTime}</p>
               <p className="mt-2 text-sm text-steel-700">{sighting.description}</p>

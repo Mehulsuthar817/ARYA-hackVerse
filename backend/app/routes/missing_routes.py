@@ -11,7 +11,7 @@ from app.database import get_db
 from app.utils.security import get_current_user
 from app.utils.image_upload import save_upload
 from app.services.encoding_service import process_image_file
-from app.config import MISSING_PERSONS_DIR
+from app.config import MISSING_PERSONS_DIR, to_public_upload_path
 
 router = APIRouter(prefix="/api", tags=["missing-persons"])
 
@@ -20,6 +20,7 @@ def _serialize(doc: dict) -> dict:
     doc["id"] = str(doc.pop("_id"))
     if "reported_by" in doc and isinstance(doc["reported_by"], ObjectId):
         doc["reported_by"] = str(doc["reported_by"])
+    doc["photo_url"] = to_public_upload_path(doc.get("photo_path"))
     doc.pop("face_encoding", None)  # Never expose raw encodings to clients
     return doc
 

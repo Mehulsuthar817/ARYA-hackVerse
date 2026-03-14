@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.utils.security import get_current_admin
+from app.config import to_public_upload_path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -74,11 +75,13 @@ async def list_matches(
             if person:
                 match["person_name"] = person.get("name")
                 match["person_photo"] = person.get("photo_path")
+                match["person_photo_url"] = to_public_upload_path(person.get("photo_path"))
         if match.get("sighting_id"):
             sighting = await db.sightings.find_one({"_id": ObjectId(match["sighting_id"])})
             if sighting:
                 match["sighting_location"] = sighting.get("location")
                 match["sighting_image"] = sighting.get("image_path")
+                match["sighting_image_url"] = to_public_upload_path(sighting.get("image_path"))
         matches.append(match)
 
     total = await db.matches.count_documents(query)
