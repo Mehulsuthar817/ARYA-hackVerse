@@ -12,6 +12,7 @@ from app.database import get_db
 from app.utils.security import get_current_user
 from app.utils.image_upload import save_upload
 from app.services.encoding_service import process_image_file
+from app.services.face_service import FACE_RECOGNITION_AVAILABLE
 from app.services.match_service import find_matches, store_match
 from app.config import SIGHTINGS_DIR, to_public_upload_path
 
@@ -54,9 +55,14 @@ async def report_sighting(
 
     if probe_encoding is None:
         return {
-            "message": "Sighting recorded. No face detected in the image.",
+            "message": (
+                "Sighting recorded, but AI face encoding is currently unavailable on the server."
+                if not FACE_RECOGNITION_AVAILABLE
+                else "Sighting recorded. No face detected in the image."
+            ),
             "sighting_id": sighting_id,
             "face_detected": False,
+            "face_recognition_available": FACE_RECOGNITION_AVAILABLE,
             "matches": [],
         }
 
@@ -88,6 +94,7 @@ async def report_sighting(
         "message": "Sighting recorded and face matching completed.",
         "sighting_id": sighting_id,
         "face_detected": True,
+        "face_recognition_available": FACE_RECOGNITION_AVAILABLE,
         "matches_found": len(matches),
         "top_matches": matches[:5],  # Return top 5 to the caller
     }

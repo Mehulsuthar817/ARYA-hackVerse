@@ -17,12 +17,21 @@ def _validate_image(file: UploadFile) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
         )
-    # Validate content-type header
-    allowed_mime = {"image/jpeg", "image/png", "image/bmp", "image/webp"}
-    if file.content_type and file.content_type not in allowed_mime:
+    # Some browsers/devices send variants like image/jpg or application/octet-stream.
+    # Accept generic image/* plus octet-stream if extension already passed validation.
+    content_type = (file.content_type or "").lower()
+    allowed_mime = {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/bmp",
+        "image/webp",
+        "application/octet-stream",
+    }
+    if content_type and not content_type.startswith("image/") and content_type not in allowed_mime:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid image content type.",
+            detail="Invalid image content type. Please upload a JPG, PNG, BMP, or WEBP image.",
         )
 
 

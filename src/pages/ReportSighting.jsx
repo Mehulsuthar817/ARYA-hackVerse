@@ -53,7 +53,7 @@ function ReportSighting() {
             type="file"
             name="photo"
             onChange={onChange}
-            accept="image/*"
+            accept=".jpg,.jpeg,.png,.bmp,.webp"
             required
             className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
           />

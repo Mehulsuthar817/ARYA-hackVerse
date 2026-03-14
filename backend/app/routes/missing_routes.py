@@ -11,6 +11,7 @@ from app.database import get_db
 from app.utils.security import get_current_user
 from app.utils.image_upload import save_upload
 from app.services.encoding_service import process_image_file
+from app.services.face_service import FACE_RECOGNITION_AVAILABLE
 from app.config import MISSING_PERSONS_DIR, to_public_upload_path
 
 router = APIRouter(prefix="/api", tags=["missing-persons"])
@@ -43,11 +44,7 @@ async def report_missing(
 
     # Generate face encoding
     encoding = process_image_file(photo_path)
-    if encoding is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="No face detected in the uploaded photo. Please upload a clear frontal face image.",
-        )
+    face_detected = encoding is not None
 
     doc = {
         "name": name,
@@ -65,9 +62,18 @@ async def report_missing(
     result = await db.missing_persons.insert_one(doc)
 
     return {
-        "message": "Missing person report submitted successfully.",
+        "message": (
+            "Missing person report submitted successfully and face encoding was generated."
+            if face_detected
+            else (
+                "Missing person report submitted, but AI face encoding is currently unavailable on the server."
+                if not FACE_RECOGNITION_AVAILABLE
+                else "Missing person report submitted, but no clear face was detected. Please upload a frontal face image to improve AI matching."
+            )
+        ),
         "person_id": str(result.inserted_id),
-        "face_detected": True,
+        "face_detected": face_detected,
+        "face_recognition_available": FACE_RECOGNITION_AVAILABLE,
     }
 
 

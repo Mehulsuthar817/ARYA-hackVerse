@@ -129,19 +129,29 @@ def generate_encoding(image: np.ndarray) -> Optional[list]:
 def compare_faces(
     known_encoding: list,
     candidate_encoding: list,
-    threshold: float = 0.6,
+    threshold: float = 0.5,
 ) -> tuple[bool, float]:
     """
     Compare two face encodings.
     Returns (is_match: bool, confidence: float).
-    confidence = 1 - face_distance  (higher is better).
-    Returns (False, 0.0) if face_recognition is unavailable.
+    confidence is threshold-relative: (threshold - distance) / threshold,
+    so distance=0 → 1.0, distance=threshold → 0.0. Returns (False, 0.0)
+    if face_recognition is unavailable or encodings are invalid.
     """
     if not FACE_RECOGNITION_AVAILABLE:
         return False, 0.0
-    known_np = np.array(known_encoding)
-    candidate_np = np.array(candidate_encoding)
-    distance = _fr.face_distance([known_np], candidate_np)[0]
-    confidence = float(1.0 - distance)
+
+    known_np = np.array(known_encoding, dtype=np.float64)
+    candidate_np = np.array(candidate_encoding, dtype=np.float64)
+
+    # Reject malformed or zero-vector encodings to prevent false 100% matches.
+    if known_np.shape != (128,) or candidate_np.shape != (128,):
+        return False, 0.0
+    if np.linalg.norm(known_np) < 1e-6 or np.linalg.norm(candidate_np) < 1e-6:
+        return False, 0.0
+
+    distance = float(_fr.face_distance([known_np], candidate_np)[0])
     is_match = bool(distance < threshold)
+    # Confidence: how far below the threshold is the distance (0.0–1.0 scale).
+    confidence = float(max(0.0, (threshold - distance) / threshold))
     return is_match, confidence

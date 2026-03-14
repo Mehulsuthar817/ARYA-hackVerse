@@ -22,7 +22,7 @@ CCTV_FRAMES_DIR = os.path.join(UPLOAD_DIR, "cctv_frames")
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
 
-FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "0.6"))
+FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "0.5"))
 
 
 def to_public_upload_path(file_path: Optional[str]) -> Optional[str]:
