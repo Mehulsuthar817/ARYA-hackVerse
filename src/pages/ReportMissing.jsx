@@ -47,22 +47,22 @@ function ReportMissing() {
   }
 
   return (
-    <section className="rounded-2xl border border-steel-200 bg-white p-5 shadow-card sm:p-6">
-      <h1 className="font-display text-2xl font-bold text-navy-900">Report Missing Person</h1>
+    <section className="rounded-2xl border border-steel-700/80 bg-steel-900/80 p-5 shadow-card sm:p-6">
+      <h1 className="font-display text-2xl font-bold text-steel-50">Report Missing Person</h1>
 
       <form onSubmit={onSubmit} className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium text-steel-700 sm:col-span-2">
+        <label className="text-sm font-medium text-steel-200 sm:col-span-2">
           Full Name
           <input
             name="name"
             value={formData.name}
             onChange={onChange}
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Age
           <input
             type="number"
@@ -70,17 +70,17 @@ function ReportMissing() {
             value={formData.age}
             onChange={onChange}
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Gender
           <select
             name="gender"
             value={formData.gender}
             onChange={onChange}
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           >
             <option>Male</option>
             <option>Female</option>
@@ -88,18 +88,18 @@ function ReportMissing() {
           </select>
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Last Seen Location
           <input
             name="lastSeenLocation"
             value={formData.lastSeenLocation}
             onChange={onChange}
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Last Seen Date
           <input
             type="date"
@@ -107,22 +107,22 @@ function ReportMissing() {
             value={formData.lastSeenDate}
             onChange={onChange}
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700 sm:col-span-2">
+        <label className="text-sm font-medium text-steel-200 sm:col-span-2">
           Description
           <textarea
             name="description"
             value={formData.description}
             onChange={onChange}
             rows={3}
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700 sm:col-span-2">
+        <label className="text-sm font-medium text-steel-200 sm:col-span-2">
           Upload Photo
           <input
             type="file"
@@ -130,14 +130,14 @@ function ReportMissing() {
             onChange={onChange}
             accept=".jpg,.jpeg,.png,.bmp,.webp"
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 sm:col-span-2">{error}</p> : null}
+        {error ? <p className="rounded-xl bg-red-500/12 px-3 py-2 text-sm text-red-300 sm:col-span-2">{error}</p> : null}
 
         {success ? (
-          <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">
+          <p className="rounded-xl bg-emerald-500/12 px-3 py-2 text-sm text-emerald-300 sm:col-span-2">
             {success}
           </p>
         ) : null}

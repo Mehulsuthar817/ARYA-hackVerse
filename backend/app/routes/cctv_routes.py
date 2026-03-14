@@ -13,6 +13,7 @@ GET  /api/cctv/webcam-snapshot  — Single JPEG snapshot from webcam (no auth ne
 import asyncio
 import os
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
@@ -27,7 +28,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.utils.security import get_current_admin
 from app.utils.image_upload import save_upload
-from app.services.face_service import generate_encoding, generate_all_encodings, load_image_from_bytes, detect_face, FACE_RECOGNITION_AVAILABLE
+from app.services.face_service import generate_encoding, generate_all_encodings, load_image_from_bytes, detect_faces_opencv, FACE_RECOGNITION_AVAILABLE
 from app.services.match_service import find_matches, store_match
 from app.config import CCTV_FRAMES_DIR
 
@@ -44,6 +45,56 @@ _WEBCAM_SAVE_COOLDOWN_CYCLES = 60
 # ---------------------------------------------------------------------------
 # Laptop / USB webcam live MJPEG feed
 # ---------------------------------------------------------------------------
+
+
+class ThreadedVideoCapture:
+    """Continuously grabs frames in a background thread to reduce read latency."""
+
+    def __init__(self, camera_index: int):
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # Faster on Windows
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(camera_index)
+        if not cap.isOpened():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Cannot open camera at index {camera_index}. Make sure it is connected and not in use.",
+            )
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        self._cap = cap
+        self._lock = threading.Lock()
+        self._running = False
+        self._thread: threading.Thread | None = None
+        self._frame: np.ndarray | None = None
+
+    def start(self):
+        self._running = True
+        self._thread = threading.Thread(target=self._reader, daemon=True)
+        self._thread.start()
+        return self
+
+    def _reader(self):
+        while self._running:
+            ret, frame = self._cap.read()
+            if not ret:
+                time.sleep(0.005)
+                continue
+            with self._lock:
+                self._frame = frame
+
+    def read(self) -> tuple[bool, np.ndarray | None]:
+        with self._lock:
+            if self._frame is None:
+                return False, None
+            return True, self._frame.copy()
+
+    def stop(self):
+        self._running = False
+        if self._thread is not None:
+            self._thread.join(timeout=0.5)
+        self._cap.release()
 
 def _draw_boxes_and_labels(frame: np.ndarray, face_results: list) -> np.ndarray:
     """
@@ -71,39 +122,72 @@ async def _webcam_frame_generator(
     camera_index: int,
     run_matching: bool,
     match_every_n: int,
+    detect_every_n: int,
+    process_width: int,
+    detector: str,
+    show_stats: bool,
+    adaptive_detect: bool,
+    target_fps: float,
+    detect_every_max: int,
 ) -> AsyncGenerator[bytes, None]:
     """
     Async generator that yields MJPEG boundary chunks indefinitely.
-    Runs OpenCV capture in a thread to avoid blocking the event loop.
+    Uses a dedicated capture thread so processing never blocks on camera reads.
     """
     loop = asyncio.get_event_loop()
-
-    cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # CAP_DSHOW is faster on Windows
-    if not cap.isOpened():
-        cap = cv2.VideoCapture(camera_index)              # Fallback without backend hint
-    if not cap.isOpened():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Cannot open camera at index {camera_index}. Make sure it is connected and not in use.",
-        )
-
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap = ThreadedVideoCapture(camera_index).start()
+    prefer_lbp = detector.lower() == "lbp"
 
     frame_count = 0
     cached_face_results: list = []  # list of ((top,right,bottom,left), matches)
+    cached_locations: list[tuple[int, int, int, int]] = []
     # Tracks the matching-cycle number when a person was last persisted.
     last_saved_cycle: dict[str, int] = {}
     matching_cycle = 0
+    empty_reads = 0
+    current_detect_every = detect_every_n
+    fps_ema = 0.0
+    last_frame_ts = time.perf_counter()
 
     try:
         while True:
-            # Read frame in thread pool to avoid blocking async loop
-            ret, frame = await loop.run_in_executor(None, cap.read)
+            ret, frame = cap.read()
             if not ret:
-                break
+                empty_reads += 1
+                if empty_reads > 300:
+                    break
+                await asyncio.sleep(0.003)
+                continue
+            empty_reads = 0
 
             frame_count += 1
+            now = time.perf_counter()
+            dt = now - last_frame_ts
+            last_frame_ts = now
+            if dt > 0:
+                instant_fps = 1.0 / dt
+                fps_ema = instant_fps if fps_ema == 0.0 else (fps_ema * 0.9 + instant_fps * 0.1)
+
+            # Adapt detection frequency to keep FPS near target.
+            if adaptive_detect and frame_count % 20 == 0:
+                if fps_ema < target_fps * 0.9 and current_detect_every < detect_every_max:
+                    current_detect_every += 1
+                elif fps_ema > target_fps * 1.15 and current_detect_every > detect_every_n:
+                    current_detect_every -= 1
+
+            # Fast OpenCV detection every N frames; cache boxes for skipped frames.
+            if frame_count % current_detect_every == 0:
+                rgb_for_detect = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                cached_locations = await loop.run_in_executor(
+                    None,
+                    detect_faces_opencv,
+                    rgb_for_detect,
+                    process_width,
+                    prefer_lbp,
+                    1.2,
+                    5,
+                    (60, 60),
+                )
 
             # Run face matching every N frames to keep stream smooth
             if run_matching and frame_count % match_every_n == 0:
@@ -162,12 +246,25 @@ async def _webcam_frame_generator(
             # Annotate frame with cached per-face results
             if run_matching and cached_face_results:
                 frame = _draw_boxes_and_labels(frame, cached_face_results)
-            elif run_matching:
-                # Draw unlabelled boxes while waiting for first match cycle
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                locations = detect_face(rgb)
-                for (top, right, bottom, left) in locations:
+            elif cached_locations:
+                # Draw lightweight detector boxes while waiting for recognition.
+                for (top, right, bottom, left) in cached_locations:
                     cv2.rectangle(frame, (left, top), (right, bottom), (0, 165, 255), 2)
+
+            if show_stats:
+                stats_line = (
+                    f"FPS:{fps_ema:4.1f} DET:1/{current_detect_every} "
+                    f"MATCH:1/{match_every_n} {detector.upper()}"
+                )
+                cv2.putText(
+                    frame,
+                    stats_line,
+                    (10, 24),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.62,
+                    (40, 255, 40),
+                    2,
+                )
 
             # Encode to JPEG
             _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
@@ -181,7 +278,7 @@ async def _webcam_frame_generator(
             # ~30 fps cap
             await asyncio.sleep(0.033)
     finally:
-        cap.release()
+        cap.stop()
 
 
 @router.get("/webcam-feed")
@@ -189,6 +286,13 @@ async def webcam_feed(
     camera_index: int = 0,
     match: bool = True,
     match_every: int = 15,
+    detect_every: int = 3,
+    process_width: int = 480,
+    detector: str = "haar",
+    show_stats: bool = True,
+    adaptive_detect: bool = True,
+    target_fps: float = 24.0,
+    detect_every_max: int = 8,
 ):
     """
     Stream live MJPEG video from the laptop/USB camera.
@@ -197,12 +301,42 @@ async def webcam_feed(
       camera_index  — OpenCV device index (0 = default laptop webcam)
       match         — Whether to run face recognition overlay (default: true)
       match_every   — Run matching every N frames to keep stream smooth (default: 15)
+            detect_every  — Run OpenCV detector every N frames (default: 3)
+            process_width — Resize width for detector speed-up (default: 480)
+            detector      — Cascade type: haar or lbp (default: haar)
+            show_stats    — Draw FPS + pipeline stats overlay (default: true)
+            adaptive_detect — Auto-adjust detect_every to stabilize FPS (default: true)
+            target_fps    — Desired FPS for adaptive mode (default: 24)
+            detect_every_max — Max detect skip for adaptive mode (default: 8)
 
     Usage in browser:   http://localhost:8000/api/cctv/webcam-feed
     Usage in frontend:  <img src="http://localhost:8000/api/cctv/webcam-feed" />
     """
+    match_every = max(1, int(match_every))
+    detect_every = max(1, int(detect_every))
+    detect_every_max = max(detect_every, int(detect_every_max))
+    process_width = max(160, int(process_width))
+    target_fps = max(5.0, float(target_fps))
+    detector = detector.lower()
+    if detector not in {"haar", "lbp"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="detector must be either 'haar' or 'lbp'.",
+        )
+
     return StreamingResponse(
-        _webcam_frame_generator(camera_index, match, match_every),
+        _webcam_frame_generator(
+            camera_index,
+            match,
+            match_every,
+            detect_every,
+            process_width,
+            detector,
+            show_stats,
+            adaptive_detect,
+            target_fps,
+            detect_every_max,
+        ),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 

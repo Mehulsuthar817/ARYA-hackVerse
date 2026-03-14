@@ -4,14 +4,56 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 min-h-screen font-sans text-steel-100;
+    background:
+      radial-gradient(1200px 680px at 4% -10%, rgba(59, 130, 246, 0.24), transparent 55%),
+      radial-gradient(1100px 720px at 102% 20%, rgba(14, 165, 233, 0.16), transparent 58%),
+      linear-gradient(165deg, #090d18 0%, #0f1629 46%, #08121f 100%);
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-steel-50;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply bg-steel-900/70 border border-steel-600 text-steel-100 placeholder:text-steel-400 outline-none transition;
+    @apply focus:border-navy-400 focus:ring-2 focus:ring-navy-500/40;
+  }
+
+  input[type='file'] {
+    @apply file:mr-4 file:rounded-lg file:border-0 file:bg-navy-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-navy-500;
+  }
+
+  select option {
+    background: #0f1727;
+    color: #d9e2ef;
+  }
+}
+
 body {
-  @apply m-0 min-h-screen bg-gradient-to-b from-steel-100 via-white to-navy-50 bg-grid-light bg-[size:18px_18px] font-sans text-steel-800;
+  background-size: cover;
+  background-attachment: fixed;
 }
 
 #root {
-  @apply min-h-screen;
-}
-
-* {
-  @apply box-border;
+  position: relative;
 }

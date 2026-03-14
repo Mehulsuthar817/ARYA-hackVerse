@@ -29,9 +29,18 @@ except ImportError:
         "Install dlib + face-recognition to enable AI matching."
     )
 
-# OpenCV Haar cascade — used for detection when face_recognition is absent
-# (also used to draw boxes in the live feed)
-_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+def _load_cascade(prefer_lbp: bool = False) -> cv2.CascadeClassifier:
+    """Load preferred OpenCV cascade with graceful fallback to Haar."""
+    lbp_path = cv2.data.haarcascades + "lbpcascade_frontalface.xml"
+    haar_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+
+    primary = lbp_path if prefer_lbp else haar_path
+    fallback = haar_path if prefer_lbp else lbp_path
+
+    cascade = cv2.CascadeClassifier(primary)
+    if cascade.empty():
+        cascade = cv2.CascadeClassifier(fallback)
+    return cascade
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +82,54 @@ def load_image_from_bytes(data: bytes) -> Optional[np.ndarray]:
 # Face detection
 # ---------------------------------------------------------------------------
 
+def detect_faces_opencv(
+    image: np.ndarray,
+    process_width: int = 480,
+    prefer_lbp: bool = False,
+    scale_factor: float = 1.2,
+    min_neighbors: int = 5,
+    min_size: tuple[int, int] = (60, 60),
+) -> list[tuple[int, int, int, int]]:
+    """
+    Fast OpenCV face detection with frame downscaling.
+
+    Input image must be RGB. Returned boxes are in original resolution as
+    (top, right, bottom, left).
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    h, w = gray.shape[:2]
+    if w == 0 or h == 0:
+        return []
+
+    scale = 1.0
+    small = gray
+    if process_width > 0 and w > process_width:
+        scale = process_width / float(w)
+        new_h = max(1, int(h * scale))
+        small = cv2.resize(gray, (process_width, new_h), interpolation=cv2.INTER_LINEAR)
+
+    cascade = _load_cascade(prefer_lbp=prefer_lbp)
+    rects = cascade.detectMultiScale(
+        small,
+        scaleFactor=scale_factor,
+        minNeighbors=min_neighbors,
+        minSize=min_size,
+    )
+
+    if len(rects) == 0:
+        return []
+
+    inv_scale = 1.0 / scale
+    locations: list[tuple[int, int, int, int]] = []
+    for (x, y, rw, rh) in rects:
+        left = int(x * inv_scale)
+        top = int(y * inv_scale)
+        right = int((x + rw) * inv_scale)
+        bottom = int((y + rh) * inv_scale)
+        locations.append((top, right, bottom, left))
+    return locations
+
+
 def detect_face(image: np.ndarray) -> list:
     """
     Detect face locations in an RGB image.
@@ -84,14 +141,14 @@ def detect_face(image: np.ndarray) -> list:
     if FACE_RECOGNITION_AVAILABLE:
         return _fr.face_locations(image, model="hog")
 
-    # Haar cascade fallback — works on BGR; our input is RGB so convert back
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    rects = _cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    # Convert (x, y, w, h) → (top, right, bottom, left)
-    locations = []
-    for (x, y, w, h) in rects:
-        locations.append((y, x + w, y + h, x))
-    return locations
+    return detect_faces_opencv(
+        image,
+        process_width=480,
+        prefer_lbp=False,
+        scale_factor=1.2,
+        min_neighbors=5,
+        min_size=(60, 60),
+    )
 
 
 # ---------------------------------------------------------------------------

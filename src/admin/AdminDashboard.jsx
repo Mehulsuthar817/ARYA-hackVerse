@@ -52,11 +52,11 @@ function AdminDashboard() {
   return (
     <section className="space-y-6">
       <header>
-        <h1 className="font-display text-3xl font-bold text-navy-900">Police Control Dashboard</h1>
-        <p className="text-sm text-steel-600">Monitor camera alerts and AI verification queue.</p>
+        <h1 className="font-display text-3xl font-bold text-steel-50">Police Control Dashboard</h1>
+        <p className="text-sm text-steel-300">Monitor camera alerts and AI verification queue.</p>
       </header>
 
-      {error ? <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
+      {error ? <p className="rounded-xl bg-red-500/12 p-4 text-sm text-red-300">{error}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatsCard title="Total Missing Persons" value={stats?.totalMissing ?? '--'} icon={<Users size={18} />} />
@@ -67,9 +67,9 @@ function AdminDashboard() {
 
       <AlertPanel alerts={alerts} />
 
-      <div className="rounded-2xl border border-steel-200 bg-white p-5 shadow-card">
-        <h2 className="mb-1 font-display text-lg font-bold text-navy-900">Fix Missing Face Encodings</h2>
-        <p className="mb-3 text-sm text-steel-600">
+      <div className="rounded-2xl border border-steel-700/80 bg-steel-900/80 p-5 shadow-card">
+        <h2 className="mb-1 font-display text-lg font-bold text-steel-50">Fix Missing Face Encodings</h2>
+        <p className="mb-3 text-sm text-steel-300">
           Re-scan all missing person photos that have no AI encoding stored (e.g. uploaded before face-recognition was installed).
         </p>
         <button
@@ -81,7 +81,7 @@ function AdminDashboard() {
           {reencoding ? 'Re-encoding...' : 'Re-encode Missing Persons'}
         </button>
         {reencodeStatus ? (
-          <p className="mt-2 text-sm text-steel-700">{reencodeStatus}</p>
+          <p className="mt-2 text-sm text-steel-200">{reencodeStatus}</p>
         ) : null}
       </div>
     </section>

@@ -29,7 +29,7 @@ function FullscreenModal({ camera, onClose }) {
         </div>
         <button
           onClick={onClose}
-          className="rounded-full p-2 text-steel-300 hover:bg-white/10 hover:text-white transition-colors"
+          className="rounded-full p-2 text-steel-300 hover:bg-steel-900/10 hover:text-white transition-colors"
           aria-label="Close fullscreen"
         >
           <X size={22} />
@@ -57,7 +57,7 @@ function FullscreenModal({ camera, onClose }) {
             Face Detected — Possible Match — Confidence {camera.confidence}%
           </p>
         ) : (
-          <p className="text-emerald-300">No suspicious pattern detected.</p>
+          <p className="text-emerald-300"></p>
         )}
       </div>
     </div>
@@ -85,32 +85,36 @@ function LiveCCTV() {
     fetchCameras()
   }, [])
 
-  return (
-    <section className="space-y-4">
-      <header>
-        <h1 className="font-display text-3xl font-bold text-navy-900">CCTV Monitoring</h1>
-        <p className="text-sm text-steel-600">Live feeds with AI face match overlays. Click any feed to open fullscreen.</p>
-      </header>
+return (
+  <section className="border border-black min-h-[600px] space-y-4 p-4">
+    <header>
+      <h1 className="font-display text-3xl font-bold text-steel-50">CCTV Monitoring</h1>
+      <p className="text-sm text-steel-300">Live feeds with AI face match overlays. Click any feed to open fullscreen.</p>
+    </header>
 
-      {loading ? (
-        <div className="flex items-center gap-2 text-steel-600">
-          <Loader2 className="animate-spin" size={18} /> Loading camera feeds...
-        </div>
-      ) : error ? (
-        <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    {loading ? (
+      <div className="flex items-center gap-2 text-steel-300">
+        <Loader2 className="animate-spin" size={18} /> Loading camera feeds...
+      </div>
+    ) : error ? (
+      <p className="rounded-xl bg-red-500/12 p-4 text-sm text-red-300">{error}</p>
+    ) : (
+      <div className="flex justify-center items-start">
+        <div className="grid grid-cols-1 gap-4 w-full max-w-2xl">
           {cameras.map((camera) => (
-            <CameraFeed key={camera.id} camera={camera} onClick={() => setActiveCamera(camera)} />
+            <div key={camera.id} className="aspect-square w-full overflow-hidden rounded-xl">
+              <CameraFeed camera={camera} onClick={() => setActiveCamera(camera)} />
+            </div>
           ))}
         </div>
-      )}
+      </div>
+    )}
 
-      {activeCamera && (
-        <FullscreenModal camera={activeCamera} onClose={() => setActiveCamera(null)} />
-      )}
-    </section>
-  )
+    {activeCamera && (
+      <FullscreenModal camera={activeCamera} onClose={() => setActiveCamera(null)} />
+    )}
+  </section>
+)
 }
 
 export default LiveCCTV

@@ -33,9 +33,11 @@ function ProtectedRoute({ children, role }) {
 
 function AppLayout({ children }) {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-5 sm:px-6 lg:px-8">
       <Navbar />
-      <main className="mt-6 flex-1">{children}</main>
+      <main className="mt-6 flex-1 rounded-3xl border border-white/5 bg-white/[0.02] p-4 backdrop-blur-sm sm:p-5">
+        {children}
+      </main>
     </div>
   )
 }

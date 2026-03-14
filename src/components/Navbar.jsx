@@ -39,27 +39,27 @@ function Navbar() {
   }
 
   return (
-    <header className="rounded-2xl border border-navy-200 bg-white/90 p-4 shadow-card backdrop-blur">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-steel-200 pb-4">
+    <header className="rounded-2xl border border-navy-500/35 bg-steel-900/70 p-4 shadow-card backdrop-blur-md">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-steel-700/80 pb-4">
         <Link to={user.role === 'admin' ? '/admin/dashboard' : '/dashboard'} className="flex items-center gap-2">
           <div className="rounded-xl bg-navy-700 p-2 text-white">
             <UserRoundSearch size={18} />
           </div>
           <div>
-            <p className="font-display text-lg font-semibold text-navy-900">ARYA Surveillance</p>
-            <p className="text-xs text-steel-600">Missing Person Identification System</p>
+            <p className="font-display text-lg font-semibold text-steel-50">ARYA Surveillance</p>
+            <p className="text-xs text-steel-300">Missing Person Identification System</p>
           </div>
         </Link>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-xl bg-steel-100 px-3 py-2 text-sm text-steel-700">
+          <div className="flex items-center gap-2 rounded-xl bg-steel-800/75 px-3 py-2 text-sm text-steel-200">
             {user.role === 'admin' ? <Shield size={14} /> : <CircleUserRound size={14} />}
             <span>{user.name}</span>
           </div>
           <button
             type="button"
             onClick={logout}
-            className="inline-flex items-center gap-2 rounded-xl bg-navy-800 px-3 py-2 text-sm font-medium text-white hover:bg-navy-900"
+            className="inline-flex items-center gap-2 rounded-xl bg-navy-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-navy-600"
           >
             <LogOut size={14} /> Logout
           </button>
@@ -72,10 +72,10 @@ function Navbar() {
             key={link.to}
             to={link.to}
             className={({ isActive }) =>
-              `rounded-xl px-3 py-2 text-sm font-medium transition ${
+              `rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-navy-700 text-white'
-                  : 'bg-steel-100 text-steel-700 hover:bg-steel-200'
+                  ? 'bg-navy-600 text-white'
+                  : 'bg-steel-800/70 text-steel-200 hover:bg-steel-700/80'
               }`
             }
           >
@@ -84,7 +84,7 @@ function Navbar() {
         ))}
 
         {user.role === 'admin' && (
-          <div className="ml-auto flex items-center gap-2 rounded-xl bg-emerald-100 px-3 py-2 text-xs font-semibold text-emerald-800">
+          <div className="ml-auto flex items-center gap-2 rounded-xl border border-emerald-500/35 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-200">
             <Camera size={14} /> 6 Cameras Active
           </div>
         )}

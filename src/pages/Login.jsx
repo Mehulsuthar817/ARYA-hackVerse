@@ -34,12 +34,12 @@ function Login() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10 sm:px-6">
-      <section className="w-full rounded-3xl border border-steel-200 bg-white p-6 shadow-card sm:p-8">
-        <h1 className="font-display text-3xl font-bold text-navy-900">Login</h1>
-        <p className="mt-2 text-sm text-steel-600">Access citizen or police dashboard.</p>
+      <section className="w-full rounded-3xl border border-steel-700/80 bg-steel-900/80 p-6 shadow-card sm:p-8">
+        <h1 className="font-display text-3xl font-bold text-steel-50">Login</h1>
+        <p className="mt-2 text-sm text-steel-300">Access citizen or police dashboard.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Email
             <input
               type="email"
@@ -47,12 +47,12 @@ function Login() {
               value={formData.email}
               onChange={onChange}
               required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
               placeholder="name@example.com"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Password
             <input
               type="password"
@@ -60,25 +60,25 @@ function Login() {
               value={formData.password}
               onChange={onChange}
               required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
               placeholder="********"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Login As
             <select
               name="role"
               value={formData.role}
               onChange={onChange}
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             >
                 <option value="user">Citizen User</option>
               <option value="admin">Police / Admin</option>
             </select>
           </label>
 
-          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="rounded-xl bg-red-500/12 px-3 py-2 text-sm text-red-300">{error}</p>}
 
           <button
             type="submit"
@@ -91,7 +91,7 @@ function Login() {
 
           <Link
             to="/signup"
-            className="block rounded-xl border border-steel-300 px-4 py-3 text-center text-sm font-medium text-steel-700 hover:bg-steel-100"
+            className="block rounded-xl border border-steel-600/85 px-4 py-3 text-center text-sm font-medium text-steel-200 hover:bg-steel-800/75"
           >
             Create Account
           </Link>

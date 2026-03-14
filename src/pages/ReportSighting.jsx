@@ -43,11 +43,11 @@ function ReportSighting() {
   }
 
   return (
-    <section className="rounded-2xl border border-steel-200 bg-white p-5 shadow-card sm:p-6">
-      <h1 className="font-display text-2xl font-bold text-navy-900">Report Sighting</h1>
+    <section className="rounded-2xl border border-steel-700/80 bg-steel-900/80 p-5 shadow-card sm:p-6">
+      <h1 className="font-display text-2xl font-bold text-steel-50">Report Sighting</h1>
 
       <form onSubmit={onSubmit} className="mt-5 grid gap-4">
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Upload Photo
           <input
             type="file"
@@ -55,33 +55,33 @@ function ReportSighting() {
             onChange={onChange}
             accept=".jpg,.jpeg,.png,.bmp,.webp"
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Location
           <input
             name="location"
             value={formData.location}
             onChange={onChange}
             required
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        <label className="text-sm font-medium text-steel-700">
+        <label className="text-sm font-medium text-steel-200">
           Description
           <textarea
             name="description"
             value={formData.description}
             onChange={onChange}
             rows={3}
-            className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2"
+            className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2"
           />
         </label>
 
-        {error ? <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="rounded-xl bg-red-500/12 px-3 py-2 text-sm text-red-300">{error}</p> : null}
 
         <button
           type="submit"
@@ -94,16 +94,16 @@ function ReportSighting() {
       </form>
 
       {loading ? (
-        <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700">AI analyzing image...</p>
+        <p className="mt-4 rounded-xl bg-amber-500/12 px-3 py-2 text-sm text-amber-300">AI analyzing image...</p>
       ) : null}
 
       {result ? (
-        <article className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <h2 className="font-display text-lg font-semibold text-emerald-800">AI Result</h2>
-          <p className="mt-1 text-sm text-emerald-700">{result.aiResult}</p>
-          <p className="text-sm text-emerald-700">Confidence Score: {result.confidence}%</p>
+        <article className="mt-4 rounded-xl border border-emerald-500/35 bg-emerald-500/12 p-4">
+          <h2 className="font-display text-lg font-semibold text-emerald-200">AI Result</h2>
+          <p className="mt-1 text-sm text-emerald-300">{result.aiResult}</p>
+          <p className="text-sm text-emerald-300">Confidence Score: {result.confidence}%</p>
           {result.topMatches?.length ? (
-            <p className="mt-2 text-sm text-emerald-700">Top match: {result.topMatches[0].name}</p>
+            <p className="mt-2 text-sm text-emerald-300">Top match: {result.topMatches[0].name}</p>
           ) : null}
         </article>
       ) : null}

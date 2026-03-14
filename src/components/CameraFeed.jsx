@@ -3,7 +3,7 @@ import { Camera, Maximize2, ScanFace } from 'lucide-react'
 function CameraFeed({ camera, onClick }) {
   return (
     <article
-      className="relative overflow-hidden rounded-2xl border border-steel-300 bg-navy-900 shadow-card cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+      className="relative overflow-hidden rounded-2xl border border-steel-600/85 bg-navy-900 shadow-card cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -11,13 +11,15 @@ function CameraFeed({ camera, onClick }) {
       aria-label={`Open ${camera.location} fullscreen`}
     >
       {camera.feedUrl ? (
-        <img
-          src={camera.feedUrl}
-          alt={camera.location}
-          className="h-44 w-full object-cover opacity-80"
-        />
+       <img
+  src={camera.feedUrl}
+  alt={camera.location}
+  className="w-full h-full object-cover opacity-80"
+/>
       ) : (
-        <div className="flex h-44 items-center justify-center bg-navy-800 text-sm text-steel-100">Feed unavailable</div>
+        <div className="flex h-full w-full items-center justify-center bg-navy-800 text-sm text-steel-100">
+  Feed unavailable
+</div>
       )}
 
       <div className="absolute left-3 top-3 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-semibold text-white">

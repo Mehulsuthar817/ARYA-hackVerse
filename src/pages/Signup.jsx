@@ -83,11 +83,11 @@ function Signup() {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-2xl items-center px-4 py-10 sm:px-6">
-      <section className="w-full rounded-3xl border border-steel-200 bg-white p-6 shadow-card sm:p-8">
-        <h1 className="font-display text-3xl font-bold text-navy-900">Create Account</h1>
+      <section className="w-full rounded-3xl border border-steel-700/80 bg-steel-900/80 p-6 shadow-card sm:p-8">
+        <h1 className="font-display text-3xl font-bold text-steel-50">Create Account</h1>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm font-medium text-steel-700 sm:col-span-2">
+          <label className="block text-sm font-medium text-steel-200 sm:col-span-2">
             Full Name
             <input
               type="text"
@@ -95,11 +95,11 @@ function Signup() {
               value={formData.fullName}
               onChange={onChange}
               required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Email
             <input
               type="email"
@@ -107,11 +107,11 @@ function Signup() {
               value={formData.email}
               onChange={onChange}
               required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Phone Number
             <input
               type="tel"
@@ -119,24 +119,24 @@ function Signup() {
               value={formData.phoneNumber}
               onChange={onChange}
               required
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700 sm:col-span-2">
+          <label className="block text-sm font-medium text-steel-200 sm:col-span-2">
             Register As
             <select
               name="role"
               value={formData.role}
               onChange={onChange}
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             >
               <option value="user">Citizen User</option>
               <option value="admin">Police / Admin</option>
             </select>
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Password
             <input
               type="password"
@@ -145,11 +145,11 @@ function Signup() {
               onChange={onChange}
               required
               minLength={8}
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
 
-          <label className="block text-sm font-medium text-steel-700">
+          <label className="block text-sm font-medium text-steel-200">
             Confirm Password
             <input
               type="password"
@@ -158,13 +158,13 @@ function Signup() {
               onChange={onChange}
               required
               minLength={8}
-              className="mt-1 w-full rounded-xl border border-steel-300 px-3 py-2 outline-none ring-navy-300 focus:ring"
+              className="mt-1 w-full rounded-xl border border-steel-600/85 px-3 py-2 outline-none ring-navy-300 focus:ring"
             />
           </label>
 
-          {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 sm:col-span-2">{error}</p>}
+          {error && <p className="rounded-xl bg-red-500/12 px-3 py-2 text-sm text-red-300 sm:col-span-2">{error}</p>}
           {success && (
-            <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 sm:col-span-2">
+            <p className="rounded-xl bg-emerald-500/12 px-3 py-2 text-sm text-emerald-300 sm:col-span-2">
               {success}
             </p>
           )}
@@ -180,7 +180,7 @@ function Signup() {
 
           <Link
             to="/login"
-            className="rounded-xl border border-steel-300 px-4 py-3 text-center text-sm font-medium text-steel-700 hover:bg-steel-100 sm:col-span-2"
+            className="rounded-xl border border-steel-600/85 px-4 py-3 text-center text-sm font-medium text-steel-200 hover:bg-steel-800/75 sm:col-span-2"
           >
             Back to Login
           </Link>

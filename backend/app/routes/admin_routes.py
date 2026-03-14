@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app.database import get_db
 from app.utils.security import get_current_admin
-from app.config import to_public_upload_path
+from app.config import MIN_PREDICTION_CONFIDENCE, to_public_upload_path
 from app.services.face_service import FACE_RECOGNITION_AVAILABLE, generate_all_encodings, load_image_from_path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -36,8 +36,10 @@ async def dashboard(_admin=Depends(get_current_admin)):
     total_missing = await db.missing_persons.count_documents({"status": "missing"})
     total_found = await db.missing_persons.count_documents({"status": "found"})
     total_sightings = await db.sightings.count_documents({})
-    total_matches = await db.matches.count_documents({})
-    pending_verification = await db.matches.count_documents({"verified": False})
+    total_matches = await db.matches.count_documents({"confidence": {"$gte": MIN_PREDICTION_CONFIDENCE}})
+    pending_verification = await db.matches.count_documents(
+        {"verified": False, "confidence": {"$gte": MIN_PREDICTION_CONFIDENCE}}
+    )
     total_users = await db.users.count_documents({"role": "user"})
 
     return {
@@ -62,7 +64,7 @@ async def list_matches(
     _admin=Depends(get_current_admin),
 ):
     db = get_db()
-    query = {}
+    query = {"confidence": {"$gte": MIN_PREDICTION_CONFIDENCE}}
     if verified is not None:
         query["verified"] = verified
 
