@@ -11,7 +11,9 @@ GET  /api/cctv/webcam-feed      — MJPEG live stream from a connected camera
 GET  /api/cctv/webcam-snapshot  — Single JPEG snapshot from webcam (no auth needed for preview).
 """
 import asyncio
+import os
 import threading
+import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
@@ -25,7 +27,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.utils.security import get_current_admin
 from app.utils.image_upload import save_upload
-from app.services.face_service import generate_encoding, load_image_from_bytes, detect_face, FACE_RECOGNITION_AVAILABLE
+from app.services.face_service import generate_encoding, generate_all_encodings, load_image_from_bytes, detect_face, FACE_RECOGNITION_AVAILABLE
 from app.services.match_service import find_matches, store_match
 from app.config import CCTV_FRAMES_DIR
 
@@ -34,23 +36,30 @@ router = APIRouter(prefix="/api/cctv", tags=["cctv"])
 # Track active stream tasks  {stream_id: threading.Event}
 _active_streams: dict[str, threading.Event] = {}
 
+# How many matching cycles before the same person_id can be saved again from
+# the live webcam feed (prevents flooding the DB with duplicate records).
+_WEBCAM_SAVE_COOLDOWN_CYCLES = 60
+
 
 # ---------------------------------------------------------------------------
 # Laptop / USB webcam live MJPEG feed
 # ---------------------------------------------------------------------------
 
-def _draw_boxes_and_labels(frame: np.ndarray, matches: list[dict]) -> np.ndarray:
-    """Draw green bounding boxes with name + confidence on the frame."""
-    # face_recognition locations are (top, right, bottom, left)
-    from app.services.face_service import detect_face, load_image_from_bytes
-    import face_recognition
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    locations = detect_face(rgb)
-    for i, (top, right, bottom, left) in enumerate(locations):
-        label = ""
-        if i < len(matches):
-            label = f"{matches[i]['name']} {matches[i]['confidence']*100:.1f}%"
-        color = (0, 255, 0) if matches else (0, 165, 255)
+def _draw_boxes_and_labels(frame: np.ndarray, face_results: list) -> np.ndarray:
+    """
+    Draw bounding boxes with name + confidence for each detected face.
+
+    face_results: list of ((top, right, bottom, left), matches) where
+        matches is a list of match dicts sorted by confidence (may be empty).
+    """
+    for (top, right, bottom, left), matches in face_results:
+        if matches:
+            best = matches[0]
+            label = f"{best['name']} {best['confidence']*100:.1f}%"
+            color = (0, 255, 0)
+        else:
+            label = ""
+            color = (0, 165, 255)
         cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
         if label:
             cv2.putText(frame, label, (left, top - 8),
@@ -67,7 +76,6 @@ async def _webcam_frame_generator(
     Async generator that yields MJPEG boundary chunks indefinitely.
     Runs OpenCV capture in a thread to avoid blocking the event loop.
     """
-    import asyncio
     loop = asyncio.get_event_loop()
 
     cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)  # CAP_DSHOW is faster on Windows
@@ -83,7 +91,10 @@ async def _webcam_frame_generator(
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     frame_count = 0
-    cached_matches: list[dict] = []
+    cached_face_results: list = []  # list of ((top,right,bottom,left), matches)
+    # Tracks the matching-cycle number when a person was last persisted.
+    last_saved_cycle: dict[str, int] = {}
+    matching_cycle = 0
 
     try:
         while True:
@@ -96,18 +107,63 @@ async def _webcam_frame_generator(
 
             # Run face matching every N frames to keep stream smooth
             if run_matching and frame_count % match_every_n == 0:
+                matching_cycle += 1
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                encoding = await loop.run_in_executor(None, generate_encoding, rgb)
-                if encoding is not None:
+                face_encodings = await loop.run_in_executor(None, generate_all_encodings, rgb)
+                if face_encodings:
                     db = get_db()
                     if db is not None:
-                        cached_matches = await find_matches(encoding, db)
+                        new_results = []
+                        for loc, enc in face_encodings:
+                            matches = await find_matches(enc, db)
+                            new_results.append((loc, matches))
+                        cached_face_results = new_results
 
-            # Annotate frame with any cached matches
-            if run_matching and cached_matches:
-                frame = _draw_boxes_and_labels(frame, cached_matches)
+                        # ── Persist new matches to MongoDB ──────────────────
+                        # Save the raw frame once per cycle (shared by all faces).
+                        frame_saved_path = None
+                        for _loc, face_matches in new_results:
+                            for match in face_matches:
+                                pid = match["person_id"]
+                                last_cycle = last_saved_cycle.get(pid, -_WEBCAM_SAVE_COOLDOWN_CYCLES)
+                                if matching_cycle - last_cycle < _WEBCAM_SAVE_COOLDOWN_CYCLES:
+                                    continue  # Saved recently — skip
+                                if frame_saved_path is None:
+                                    os.makedirs(CCTV_FRAMES_DIR, exist_ok=True)
+                                    frame_saved_path = os.path.join(
+                                        CCTV_FRAMES_DIR,
+                                        f"webcam_{uuid.uuid4().hex}.jpg",
+                                    )
+                                    cv2.imwrite(frame_saved_path, frame)
+                                sighting_doc = {
+                                    "image_path": frame_saved_path,
+                                    "location": f"Live webcam (camera {camera_index})",
+                                    "description": "Automated live webcam detection",
+                                    "uploaded_by": None,
+                                    "timestamp": datetime.now(timezone.utc),
+                                    "match_person_id": ObjectId(pid),
+                                    "confidence_score": match["confidence"],
+                                }
+                                sighting_result = await db.sightings.insert_one(sighting_doc)
+                                await store_match(
+                                    pid,
+                                    str(sighting_result.inserted_id),
+                                    match["confidence"],
+                                    db,
+                                )
+                                last_saved_cycle[pid] = matching_cycle
+                                print(
+                                    f"[webcam] Persisted match: {match['name']}  "
+                                    f"conf={match['confidence']:.3f}"
+                                )
+                else:
+                    cached_face_results = []
+
+            # Annotate frame with cached per-face results
+            if run_matching and cached_face_results:
+                frame = _draw_boxes_and_labels(frame, cached_face_results)
             elif run_matching:
-                # Still draw unlabelled boxes when no match yet
+                # Draw unlabelled boxes while waiting for first match cycle
                 rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 locations = detect_face(rgb)
                 for (top, right, bottom, left) in locations:
@@ -192,8 +248,8 @@ async def process_frame(
             detail="Unable to decode the uploaded frame.",
         )
 
-    encoding = generate_encoding(image)
-    if encoding is None:
+    face_encodings = generate_all_encodings(image)
+    if not face_encodings:
         return {
             "camera_id": camera_id,
             "faces_detected": 0,
@@ -201,28 +257,36 @@ async def process_frame(
             "frame_path": frame_path,
         }
 
-    matches = await find_matches(encoding, db)
+    all_matches: list[dict] = []
+    for _loc, encoding in face_encodings:
+        matches = await find_matches(encoding, db)
+        for match in matches:
+            sighting_doc = {
+                "image_path": frame_path,
+                "location": f"CCTV camera: {camera_id}",
+                "description": "Automated CCTV frame detection",
+                "uploaded_by": None,
+                "timestamp": datetime.now(timezone.utc),
+                "match_person_id": ObjectId(match["person_id"]),
+                "confidence_score": match["confidence"],
+            }
+            sighting_result = await db.sightings.insert_one(sighting_doc)
+            await store_match(match["person_id"], str(sighting_result.inserted_id), match["confidence"], db)
+        all_matches.extend(matches)
 
-    # Persist each match
-    for match in matches:
-        # Create a placeholder sighting for this CCTV frame
-        sighting_doc = {
-            "image_path": frame_path,
-            "location": f"CCTV camera: {camera_id}",
-            "description": "Automated CCTV frame detection",
-            "uploaded_by": None,
-            "timestamp": datetime.now(timezone.utc),
-            "match_person_id": ObjectId(match["person_id"]),
-            "confidence_score": match["confidence"],
-        }
-        sighting_result = await db.sightings.insert_one(sighting_doc)
-        await store_match(match["person_id"], str(sighting_result.inserted_id), match["confidence"], db)
+    # Deduplicate by person_id, keeping the highest-confidence match
+    seen: dict[str, dict] = {}
+    for m in all_matches:
+        pid = m["person_id"]
+        if pid not in seen or m["confidence"] > seen[pid]["confidence"]:
+            seen[pid] = m
+    top_matches = sorted(seen.values(), key=lambda x: x["confidence"], reverse=True)
 
     return {
         "camera_id": camera_id,
-        "faces_detected": 1,
-        "matches_found": len(matches),
-        "top_matches": matches[:3],
+        "faces_detected": len(face_encodings),
+        "matches_found": len(top_matches),
+        "top_matches": top_matches[:3],
         "frame_path": frame_path,
     }
 
@@ -239,7 +303,7 @@ def _stream_worker(stream_url: str, camera_id: str, stop_event: threading.Event,
     import asyncio
     import time
     from app.database import get_db
-    from app.services.face_service import generate_encoding
+    from app.services.face_service import generate_all_encodings
     from app.services.match_service import find_matches, store_match
     from app.config import CCTV_FRAMES_DIR
     import os, uuid
@@ -267,10 +331,10 @@ def _stream_worker(stream_url: str, camera_id: str, stop_event: threading.Event,
         if frame_count % skip_frames != 0:
             continue
 
-        # Convert and encode
+        # Detect and encode every face in this frame independently
         rgb_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
-        encoding = generate_encoding(rgb_frame)
-        if encoding is None:
+        face_encodings = generate_all_encodings(rgb_frame)
+        if not face_encodings:
             continue
 
         # Save the frame
@@ -278,24 +342,25 @@ def _stream_worker(stream_url: str, camera_id: str, stop_event: threading.Event,
         filename = os.path.join(CCTV_FRAMES_DIR, f"{camera_id}_{uuid.uuid4().hex}.jpg")
         cv2.imwrite(filename, bgr_frame)
 
-        async def _persist(enc, fpath):
+        async def _persist_all(encodings, fpath):
             db = get_db()
-            matches = await find_matches(enc, db)
-            for m in matches:
-                sighting_doc = {
-                    "image_path": fpath,
-                    "location": f"CCTV camera: {camera_id}",
-                    "description": "Automated CCTV stream detection",
-                    "uploaded_by": None,
-                    "timestamp": datetime.now(timezone.utc),
-                    "match_person_id": ObjectId(m["person_id"]),
-                    "confidence_score": m["confidence"],
-                }
-                sr = await db.sightings.insert_one(sighting_doc)
-                await store_match(m["person_id"], str(sr.inserted_id), m["confidence"], db)
-                print(f"[CCTV] Match found: person={m['name']}  confidence={m['confidence']:.3f}")
+            for _loc, enc in encodings:
+                matches = await find_matches(enc, db)
+                for m in matches:
+                    sighting_doc = {
+                        "image_path": fpath,
+                        "location": f"CCTV camera: {camera_id}",
+                        "description": "Automated CCTV stream detection",
+                        "uploaded_by": None,
+                        "timestamp": datetime.now(timezone.utc),
+                        "match_person_id": ObjectId(m["person_id"]),
+                        "confidence_score": m["confidence"],
+                    }
+                    sr = await db.sightings.insert_one(sighting_doc)
+                    await store_match(m["person_id"], str(sr.inserted_id), m["confidence"], db)
+                    print(f"[CCTV] Match found: person={m['name']}  confidence={m['confidence']:.3f}")
 
-        loop.run_until_complete(_persist(encoding, filename))
+        loop.run_until_complete(_persist_all(face_encodings, filename))
 
     cap.release()
     loop.close()

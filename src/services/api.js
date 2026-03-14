@@ -309,6 +309,12 @@ export const reportApi = {
   verifyMatch: async (matchId, verified) => {
     return api.put(`/admin/verify-match/${matchId}`, { verified })
   },
+  deleteMatch: async (matchId) => {
+    return api.delete(`/admin/matches/${matchId}`)
+  },
+  reencodePersons: async () => {
+    return api.post('/admin/reencoder')
+  },
   getUsers: async () => {
     const response = await api.get('/admin/users')
     return { ...response, data: response.data.results }

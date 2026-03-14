@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.utils.security import get_current_admin
 from app.config import to_public_upload_path
+from app.services.face_service import FACE_RECOGNITION_AVAILABLE, generate_all_encodings, load_image_from_path
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -124,6 +125,21 @@ async def verify_match(
     return {"message": f"Match {action} successfully."}
 
 
+@router.delete("/matches/{match_id}")
+async def delete_match(match_id: str, _admin=Depends(get_current_admin)):
+    db = get_db()
+    try:
+        oid = ObjectId(match_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid match ID.")
+
+    result = await db.matches.delete_one({"_id": oid})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Match not found.")
+
+    return {"message": "Match record deleted successfully."}
+
+
 # ---------------------------------------------------------------------------
 # Users management
 # ---------------------------------------------------------------------------
@@ -138,3 +154,56 @@ async def list_users(skip: int = 0, limit: int = 50, _admin=Depends(get_current_
         users.append(doc)
     total = await db.users.count_documents({})
     return {"total": total, "results": users}
+
+
+# ---------------------------------------------------------------------------
+# Re-encode missing persons that have no face encoding stored
+# ---------------------------------------------------------------------------
+
+@router.post("/reencoder")
+async def reencoder(_admin=Depends(get_current_admin)):
+    """
+    Scan all missing persons whose face_encoding is None and try to generate
+    encodings from their stored photo. Useful when face_recognition was
+    unavailable at report time and has since been installed.
+    Returns: how many were successfully encoded vs how many still failed.
+    """
+    if not FACE_RECOGNITION_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="face_recognition library is not installed on the server.",
+        )
+
+    db = get_db()
+    cursor = db.missing_persons.find(
+        {"$or": [{"face_encoding": None}, {"face_encoding": {"$exists": False}}]}
+    )
+
+    encoded = 0
+    failed = 0
+    async for person in cursor:
+        photo_path = person.get("photo_path")
+        if not photo_path:
+            failed += 1
+            continue
+        image = load_image_from_path(photo_path)
+        if image is None:
+            failed += 1
+            continue
+        faces = generate_all_encodings(image)
+        if not faces:
+            failed += 1
+            continue
+        # Use the first (largest/most prominent) face found
+        _loc, encoding = faces[0]
+        await db.missing_persons.update_one(
+            {"_id": person["_id"]},
+            {"$set": {"face_encoding": encoding}},
+        )
+        encoded += 1
+
+    return {
+        "message": f"Re-encoding complete. {encoded} succeeded, {failed} failed (no face detected or photo missing).",
+        "encoded": encoded,
+        "failed": failed,
+    }

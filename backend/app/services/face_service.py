@@ -122,6 +122,33 @@ def generate_encoding(image: np.ndarray) -> Optional[list]:
     return encodings[0].tolist()  # plain list for MongoDB storage
 
 
+def generate_all_encodings(image: np.ndarray) -> list:
+    """
+    Detect every face in an RGB image and return an encoding for each one.
+
+    Returns a list of (location, encoding) tuples where:
+        location = (top, right, bottom, left)
+        encoding = list of 128 floats (ready for MongoDB storage)
+
+    Returns an empty list when face_recognition is unavailable or no faces
+    are detected.
+    """
+    if not FACE_RECOGNITION_AVAILABLE:
+        return []
+
+    locations = []
+    for upsample in (1, 2):
+        locations = _fr.face_locations(image, number_of_times_to_upsample=upsample, model="hog")
+        if locations:
+            break
+
+    if not locations:
+        return []
+
+    encodings = _fr.face_encodings(image, known_face_locations=locations)
+    return [(loc, enc.tolist()) for loc, enc in zip(locations, encodings)]
+
+
 # ---------------------------------------------------------------------------
 # Face comparison
 # ---------------------------------------------------------------------------

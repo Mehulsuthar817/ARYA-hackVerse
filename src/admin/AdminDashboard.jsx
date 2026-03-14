@@ -1,4 +1,4 @@
-import { Camera, ShieldAlert, UserRoundSearch, Users } from 'lucide-react'
+import { Camera, RefreshCw, ShieldAlert, UserRoundSearch, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AlertPanel from '../components/AlertPanel'
 import StatsCard from '../components/StatsCard'
@@ -8,6 +8,8 @@ function AdminDashboard() {
   const [stats, setStats] = useState(null)
   const [alerts, setAlerts] = useState([])
   const [error, setError] = useState('')
+  const [reencodeStatus, setReencodeStatus] = useState('')
+  const [reencoding, setReencoding] = useState(false)
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -34,6 +36,19 @@ function AdminDashboard() {
     fetchDashboard()
   }, [])
 
+  const handleReencode = async () => {
+    setReencoding(true)
+    setReencodeStatus('')
+    try {
+      const res = await reportApi.reencodePersons()
+      setReencodeStatus(res.data.message)
+    } catch (err) {
+      setReencodeStatus(getErrorMessage(err, 'Re-encoding failed.'))
+    } finally {
+      setReencoding(false)
+    }
+  }
+
   return (
     <section className="space-y-6">
       <header>
@@ -51,6 +66,24 @@ function AdminDashboard() {
       </div>
 
       <AlertPanel alerts={alerts} />
+
+      <div className="rounded-2xl border border-steel-200 bg-white p-5 shadow-card">
+        <h2 className="mb-1 font-display text-lg font-bold text-navy-900">Fix Missing Face Encodings</h2>
+        <p className="mb-3 text-sm text-steel-600">
+          Re-scan all missing person photos that have no AI encoding stored (e.g. uploaded before face-recognition was installed).
+        </p>
+        <button
+          onClick={handleReencode}
+          disabled={reencoding}
+          className="inline-flex items-center gap-2 rounded-xl bg-navy-700 px-4 py-2 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60"
+        >
+          <RefreshCw size={15} className={reencoding ? 'animate-spin' : ''} />
+          {reencoding ? 'Re-encoding...' : 'Re-encode Missing Persons'}
+        </button>
+        {reencodeStatus ? (
+          <p className="mt-2 text-sm text-steel-700">{reencodeStatus}</p>
+        ) : null}
+      </div>
     </section>
   )
 }

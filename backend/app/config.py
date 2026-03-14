@@ -22,7 +22,9 @@ CCTV_FRAMES_DIR = os.path.join(UPLOAD_DIR, "cctv_frames")
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
 
-FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "0.5"))
+# face_recognition recommends 0.6 as the calibrated threshold.
+# 0.5 is too strict and drops many real matches across lighting/angle changes.
+FACE_DISTANCE_THRESHOLD = float(os.getenv("FACE_DISTANCE_THRESHOLD", "0.6"))
 
 
 def to_public_upload_path(file_path: Optional[str]) -> Optional[str]:

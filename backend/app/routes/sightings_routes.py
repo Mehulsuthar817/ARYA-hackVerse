@@ -11,8 +11,7 @@ from fastapi import APIRouter, Depends, Form, File, UploadFile, status
 from app.database import get_db
 from app.utils.security import get_current_user
 from app.utils.image_upload import save_upload
-from app.services.encoding_service import process_image_file
-from app.services.face_service import FACE_RECOGNITION_AVAILABLE
+from app.services.face_service import FACE_RECOGNITION_AVAILABLE, generate_all_encodings, load_image_from_path
 from app.services.match_service import find_matches, store_match
 from app.config import SIGHTINGS_DIR, to_public_upload_path
 
@@ -39,7 +38,9 @@ async def report_sighting(
 
     image_path = await save_upload(photo, SIGHTINGS_DIR)
 
-    probe_encoding = process_image_file(image_path)
+    # Detect every face in the uploaded photo
+    image = load_image_from_path(image_path)
+    face_encodings = generate_all_encodings(image) if image is not None else []
 
     sighting_doc = {
         "image_path": image_path,
@@ -53,7 +54,7 @@ async def report_sighting(
     result = await db.sightings.insert_one(sighting_doc)
     sighting_id = str(result.inserted_id)
 
-    if probe_encoding is None:
+    if not face_encodings:
         return {
             "message": (
                 "Sighting recorded, but AI face encoding is currently unavailable on the server."
@@ -66,15 +67,23 @@ async def report_sighting(
             "matches": [],
         }
 
-    # Compare against all missing persons
-    matches = await find_matches(probe_encoding, db)
+    # Match every face found in the photo against all missing persons
+    all_matches: list[dict] = []
+    for _loc, enc in face_encodings:
+        face_matches = await find_matches(enc, db)
+        all_matches.extend(face_matches)
 
-    stored_match_ids = []
+    # Deduplicate by person_id — keep the highest-confidence match per person
+    seen: dict[str, dict] = {}
+    for m in all_matches:
+        pid = m["person_id"]
+        if pid not in seen or m["confidence"] > seen[pid]["confidence"]:
+            seen[pid] = m
+    deduped_matches = sorted(seen.values(), key=lambda x: x["confidence"], reverse=True)
+
     best_match = None
-
-    for match in matches:
-        match_id = await store_match(match["person_id"], sighting_id, match["confidence"], db)
-        stored_match_ids.append(match_id)
+    for match in deduped_matches:
+        await store_match(match["person_id"], sighting_id, match["confidence"], db)
         if best_match is None:
             best_match = match
 
@@ -94,9 +103,10 @@ async def report_sighting(
         "message": "Sighting recorded and face matching completed.",
         "sighting_id": sighting_id,
         "face_detected": True,
+        "faces_in_photo": len(face_encodings),
         "face_recognition_available": FACE_RECOGNITION_AVAILABLE,
-        "matches_found": len(matches),
-        "top_matches": matches[:5],  # Return top 5 to the caller
+        "matches_found": len(deduped_matches),
+        "top_matches": deduped_matches[:5],
     }
 
 
